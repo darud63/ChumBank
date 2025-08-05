@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet" />
   <title>Chum App</title>
   <style>
@@ -273,20 +274,20 @@
     let energy = 100, progress = 0, coins = 0, stains = [], brushing = false;
 
     let lastY = 0;
-document.addEventListener('touchstart', e => {
-  lastY = e.touches[0].clientY;
-}, { passive: false });
+    document.addEventListener('touchstart', e => {
+      lastY = e.touches[0].clientY;
+    }, { passive: false });
 
-document.addEventListener('touchmove', e => {
-  const currentY = e.touches[0].clientY;
-  const isScrollingDown = currentY > lastY;
-  lastY = currentY;
+    document.addEventListener('touchmove', e => {
+      const currentY = e.touches[0].clientY;
+      const isScrollingDown = currentY > lastY;
+      lastY = currentY;
 
-  // Блокируем pull-to-refresh, если свайп вниз
-  if (isScrollingDown && window.scrollY === 0) {
-    e.preventDefault();
-  }
-}, { passive: false });
+    // Блокируем pull-to-refresh, если свайп вниз
+    if (isScrollingDown && window.scrollY === 0) {
+      e.preventDefault();
+    }
+    }, { passive: false });
 
     const screens = {
       shop: document.getElementById('shop-screen'),
