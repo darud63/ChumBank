@@ -20,38 +20,6 @@
       height: 100%;
       overscroll-behavior: none;
     }
-     /* Заглушка на весь экран */
-     #desktop-warning {
-      display: none;
-      position: fixed;
-      z-index: 9999;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #000000ee;
-      color: white;
-      font-family: 'Chewy', cursive;
-      font-size: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 20px;
-    }
-
-    /* Мобильный landscape режим (узкий экран по центру + затемнение по бокам) */
-    @media screen and (orientation: landscape) and (max-height: 500px) {
-  #game {
-    width: 390px;
-    margin: 0 auto;
-    box-shadow: 0 0 0 100vmax #000000dd; /* затемняет бока */
-  }
-  body {
-    overflow: auto;
-    background: #000;
-  }
-}
     #game {
       position: relative;
       width: 100vw;
@@ -283,7 +251,6 @@
   </style>
 </head>
 <body>
-    <div id="desktop-warning">Please open this app on your mobile phone 📱</div>
   <div id="game">
     <!-- ВЕДРО -->
     <div id="bucket-screen" class="screen active">
@@ -523,48 +490,7 @@ function spawnBrush(x, y) {
         bucketContainer.classList.add('centered');
         spawnStains(5);
       }, 100);
-      
-      function isMobileDevice() {
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-
-  const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
-  // Заменим жёсткий лимит 900 на более мягкий, например 1024
-  const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight;
-  const isSmallScreen = Math.min(screenWidth, screenHeight) <= 1024;
-
-  return isMobileUA && hasTouch && isSmallScreen;
-}
-
-function showDesktopWarning() {
-  const warning = document.createElement('div');
-  warning.id = 'desktop-warning';
-  warning.style.cssText = `
-    position: fixed;
-    z-index: 9999;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: #000000ee;
-    color: white;
-    font-family: 'Chewy', cursive;
-    font-size: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 20px;
-  `;
-  warning.textContent = "Пожалуйста, откройте это приложение на мобильном телефоне 📱";
-  document.body.innerHTML = ''; // Очистить всё содержимое страницы
-  document.body.appendChild(warning);
-}
-
-window.addEventListener('load', () => {
-  if (!isMobileDevice()) {
-    showDesktopWarning();
-  }
-});
+    };
   </script>
 </body>
 </html>
