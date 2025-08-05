@@ -160,6 +160,10 @@
     let coins = 0;
     let stains = [];
     let brushing = false;
+    
+    document.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    }, { passive: false });
 
     function getRandom(min, max) {
       return Math.random() * (max - min) + min;
