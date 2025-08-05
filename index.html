@@ -1,11 +1,12 @@
+<!-- Полный HTML, включая навигацию -->
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet" />
   <title>Chum App</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,8 +22,28 @@
       position: relative;
       width: 100vw;
       height: 100vh;
-      background: url('background.png') no-repeat center/cover;
     }
+
+    .screen {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      display: none;
+    }
+    .screen.active {
+      display: block;
+    }
+
+    #bucket-screen {
+      background: url('background.svg') no-repeat center/cover;
+    }
+
+    #shop-screen, #stats-screen {
+      background: url('shop-bg.svg') no-repeat center/cover;
+    }
+
     #bucket-container {
       position: absolute;
       bottom: 19vh;
@@ -34,46 +55,34 @@
     }
     #bucket-container .stain {
       position: absolute;
-      left: 0;
-      top: 0;
-}
-    #bucket-container.offscreen-left {
-      left: -100vw;
-      transform: none;
-      opacity: 1;
-}
-
-    #bucket-container.offscreen-right {
-      left: 100vw;
-      transform: none;
-      opacity: 1;
-}
+      left: 0; top: 0;
+    }
+    #bucket-container.offscreen-left { left: -100vw; opacity: 1; }
+    #bucket-container.offscreen-right { left: 100vw; opacity: 1; }
     #bucket-container.centered {
       left: 50%;
       transform: translateX(-50%);
       opacity: 1;
     }
-    #bucket {
-      width: 100%;
-      height: auto;
-      user-select: none;
-      display: block;
-    }
+    #bucket { width: 100%; height: auto; user-select: none; display: block; }
+
     .stain {
       z-index: 2;
       position: absolute;
       pointer-events: none;
-      background: url('stain.png') no-repeat center/contain;
+      background: url('stain.svg') no-repeat center/contain;
       background-size: contain;
     }
+
     .brush {
       position: absolute;
       width: 100px;
       height: 100px;
-      background: url('brush.png') no-repeat center/contain;
+      background: url('brush.svg') no-repeat center/contain;
       pointer-events: none;
       z-index: 3;
     }
+
     .coin-float {
       position: absolute;
       font-size: 20px;
@@ -82,27 +91,31 @@
       animation: floatUp 1s ease forwards;
       z-index: 6;
     }
+
     @keyframes floatUp {
       0% { opacity: 1; transform: translateY(0); }
       100% { opacity: 0; transform: translateY(-50px); }
     }
+
     #progress-container {
       position: absolute;
-      bottom: 10vh;
+      bottom: 13vh;
       left: 50%;
       transform: translateX(-50%);
       width: 70vw;
       max-width: 500px;
-      height: 20px;
+      height: 27px;
       background: #ccc;
-      border-radius: 10px;
+      border-radius: 100px;
       overflow: hidden;
     }
+
     #progress-bar {
       width: 0%;
       height: 100%;
       background: #3cc487;
     }
+
     #energy {
       position: absolute;
       bottom: 10vh;
@@ -113,8 +126,24 @@
       background-size: contain;
       z-index: 4;
     }
+
     #coins {
-      color:#fff;
+      font-family: 'Chewy', cursive;
+      color: #ffffff;
+      text-shadow:
+  0 0 1px #518B8C,
+  1px 0 #518B8C, -1px 0 #518B8C,
+  0 1px #518B8C, 0 -1px #518B8C,
+  1px 1px #518B8C, -1px -1px #518B8C,
+  -1px 1px #518B8C, 1px -1px #518B8C,
+  2px 0 #518B8C, -2px 0 #518B8C,
+  0 2px #518B8C, 0 -2px #518B8C,
+  2px 2px #518B8C, -2px -2px #518B8C,
+  -2px 2px #518B8C, 2px -2px #518B8C,
+  3px 0 #518B8C, -3px 0 #518B8C,
+  0 3px #518B8C, 0 -3px #518B8C,
+  3px 3px #518B8C, -3px -3px #518B8C,
+  -3px 3px #518B8C, 3px -3px #518B8C;
       position: absolute;
       top: 15vh;
       left: 50%;
@@ -125,32 +154,114 @@
       font-weight: bold;
       z-index: 5;
     }
-    .ui-button {
+
+    #bottom-menu {
       position: absolute;
-      bottom: 2vh;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      background-color: #4caf50;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .menu-bg {
+      position: absolute;
+      width: 95%;
+      height: 100%;
+      object-fit: contain;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .menu-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-evenly;
+      width: 90%;
+      z-index: 2;
+    }
+
+    .menu-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      text-shadow: 1.5px 1.5px 0 #263750;
+      filter: drop-shadow(1.5px 1.5px 0 #263750);
+      cursor: pointer;
+    }
+
+    .menu-item img {
+      width: 26px;
+      height: 26px;
+      margin-bottom: 4px;
+      filter: drop-shadow(1.5px 1.5px 0 #263750);
+    }
+
+    .menu-item.active { opacity: 1; }
+    .menu-item:not(.active) { opacity: 0.6; }
+
+    .divider {
+      width: 1px;
+      height: 35px;
+      background-color: #5D6D81;
+      margin: 0 10px;
+    }
+
+    .placeholder-screen {
       color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 18px;
-      z-index: 10;
+      font-family: 'Chewy', cursive;
+      font-size: 30px;
+      text-align: center;
+      padding-top: 40vh;
+      text-shadow: 2px 2px 4px #000;
     }
   </style>
 </head>
 <body>
   <div id="game">
-    <div id="bucket-container">
-      <img id="bucket" src="bucket.png" alt="bucket">
+    <!-- ВЕДРО -->
+    <div id="bucket-screen" class="screen active">
+      <div id="bucket-container">
+        <img id="bucket" src="bucket.svg" alt="bucket" />
+      </div>
+      <div id="progress-container"><div id="progress-bar"></div></div>
+      <div id="energy"></div>
+      <div id="coins">🪙 0</div>
     </div>
-    <div id="progress-container">
-      <div id="progress-bar"></div>
+
+    <!-- МАГАЗИН -->
+    <div id="shop-screen" class="screen">
+      <div class="placeholder-screen">Shop Coming Soon</div>
     </div>
-    <div id="energy"></div>
-    <div id="coins">🪙 0</div>
-    <button class="ui-button" onclick="alert('Нажата кнопка!')">Кнопка</button>
+
+    <!-- СТАТИСТИКА -->
+    <div id="stats-screen" class="screen">
+      <div class="placeholder-screen">Stats Coming Soon</div>
+    </div>
+
+    <!-- НАВИГАЦИЯ -->
+    <div id="bottom-menu">
+      <img class="menu-bg" src="menu-bg.svg" alt="меню фон" />
+      <div class="menu-content">
+        <div class="menu-item" data-tab="shop">
+          <img src="shop.svg" alt="Shop" /><span>Shop</span>
+        </div>
+        <div class="divider"></div>
+        <div class="menu-item active" data-tab="bucket">
+          <img src="bucket-mini.svg" alt="Bucket" /><span>Bucket</span>
+        </div>
+        <div class="divider"></div>
+        <div class="menu-item" data-tab="stats">
+          <img src="stats.svg" alt="Stats" /><span>Stats</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -159,27 +270,29 @@
     const bucketContainer = document.getElementById('bucket-container');
     const progressBar = document.getElementById('progress-bar');
     const coinsDisplay = document.getElementById('coins');
-    let energy = 100;
-    let progress = 0;
-    let coins = 0;
-    let stains = [];
-    let brushing = false;
-    
-    let lastY = 0;
-document.addEventListener('touchstart', e => {
-  lastY = e.touches[0].clientY;
-}, { passive: false });
+    let energy = 100, progress = 0, coins = 0, stains = [], brushing = false;
 
-document.addEventListener('touchmove', e => {
-  const currentY = e.touches[0].clientY;
-  const isScrollingDown = currentY > lastY;
-  lastY = currentY;
+    const screens = {
+      shop: document.getElementById('shop-screen'),
+      bucket: document.getElementById('bucket-screen'),
+      stats: document.getElementById('stats-screen')
+    };
 
-  // Блокируем pull-to-refresh, если свайп вниз
-  if (isScrollingDown && window.scrollY === 0) {
-    e.preventDefault();
-  }
-}, { passive: false });
+    function switchTab(tabName) {
+      for (const key in screens) {
+        screens[key].classList.remove('active');
+        document.querySelector(`[data-tab="${key}"]`).classList.remove('active');
+      }
+      screens[tabName].classList.add('active');
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    }
+
+    document.querySelectorAll('.menu-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const tab = item.getAttribute('data-tab');
+        switchTab(tab);
+      });
+    });
 
     function getRandom(min, max) {
       return Math.random() * (max - min) + min;
@@ -197,24 +310,18 @@ document.addEventListener('touchmove', e => {
       stain.style.height = `${100 * scale}px`;
       stain.style.left = `${x}px`;
       stain.style.top = `${y}px`;
-      bucketContainer.appendChild(stain);
       stain.style.transform = `rotate(${rotation}deg)`;
-
+      bucketContainer.appendChild(stain);
       stains.push(stain);
     }
 
     function spawnStains(count) {
       stains.forEach(s => s.remove());
       stains = [];
-      for (let i = 0; i < count; i++) {
-        createRandomStain();
-      }
+      for (let i = 0; i < count; i++) createRandomStain();
     }
 
     function spawnBrush(x, y) {
-      const el = document.elementFromPoint(x, y);
-      if (el && el.closest('.ui-button')) return;
-
       const existingBrush = document.querySelector('.brush');
       if (existingBrush) {
         existingBrush.style.left = `${x - 70}px`;
@@ -274,62 +381,48 @@ document.addEventListener('touchmove', e => {
     }
 
     function animateBucketSwap() {
-  // Убираем ведро вправо
-  bucketContainer.classList.remove('centered');
-  bucketContainer.classList.add('offscreen-right');
-
-  setTimeout(() => {
-    // Телепортируем налево без transition
-    bucketContainer.style.transition = 'none';
-    bucketContainer.classList.remove('offscreen-right');
-    bucketContainer.classList.add('offscreen-left');
-    bucket.src = 'bucket.png';
-
-    // Удаляем старые пятна и спавним новые — ДО выезда
-    stains.forEach(s => s.remove());
-    stains = [];
-    spawnStains(5); // ← заранее, как просишь
-
-    requestAnimationFrame(() => {
-      // Возвращаем transition
-      bucketContainer.style.transition = 'transform 0.5s ease, opacity 0.5s ease, left 0.5s ease';
-
+      bucketContainer.classList.remove('centered');
+      bucketContainer.classList.add('offscreen-right');
       setTimeout(() => {
-        // Запуск выезда
-        bucketContainer.classList.remove('offscreen-left');
-        bucketContainer.classList.add('centered');
-      }, 50);
-    });
-  }, 500); // дождись ухода вправо
-}
+        bucketContainer.style.transition = 'none';
+        bucketContainer.classList.remove('offscreen-right');
+        bucketContainer.classList.add('offscreen-left');
+        bucket.src = 'bucket.svg';
+        spawnStains(5);
+        requestAnimationFrame(() => {
+          bucketContainer.style.transition = 'transform 0.5s ease, opacity 0.5s ease, left 0.5s ease';
+          setTimeout(() => {
+            bucketContainer.classList.remove('offscreen-left');
+            bucketContainer.classList.add('centered');
+          }, 50);
+        });
+      }, 500);
+    }
 
     game.addEventListener('touchstart', (e) => {
       brushing = true;
       const touch = e.touches[0];
       spawnBrush(touch.clientX, touch.clientY);
     });
-
     game.addEventListener('touchmove', (e) => {
       if (!brushing) return;
       const touch = e.touches[0];
       spawnBrush(touch.clientX, touch.clientY);
     });
-
     game.addEventListener('touchend', () => {
       brushing = false;
       const brush = document.querySelector('.brush');
       if (brush) brush.remove();
     });
 
-    // Initial bucket animation in
     window.onload = () => {
-    bucketContainer.classList.add('offscreen-left');
-    setTimeout(() => {
+      bucketContainer.classList.add('offscreen-left');
+      setTimeout(() => {
         bucketContainer.classList.remove('offscreen-left');
         bucketContainer.classList.add('centered');
         spawnStains(5);
-  }, 100);
-}
+      }, 100);
+    };
   </script>
 </body>
 </html>
