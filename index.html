@@ -165,9 +165,21 @@
     let stains = [];
     let brushing = false;
     
-    document.addEventListener('touchmove', function (e) {
+    let lastY = 0;
+document.addEventListener('touchstart', e => {
+  lastY = e.touches[0].clientY;
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  const currentY = e.touches[0].clientY;
+  const isScrollingDown = currentY > lastY;
+  lastY = currentY;
+
+  // Блокируем pull-to-refresh, если свайп вниз
+  if (isScrollingDown && window.scrollY === 0) {
     e.preventDefault();
-    }, { passive: false });
+  }
+}, { passive: false });
 
     function getRandom(min, max) {
       return Math.random() * (max - min) + min;
