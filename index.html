@@ -3,7 +3,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -45,6 +44,55 @@
     #shop-screen, #stats-screen {
       background: url('shop-bg.svg') no-repeat center/cover;
     }
+    @media (min-hight: 500px) {
+  #game { display: none !important; }
+  #desktop-warning { display: block !important; }
+}
+    @media (min-aspect-ratio: 9/18) {
+  #bucket-container {
+    width: 60vw;
+    max-width: 400px;
+  }
+}
+@media (max-height: 700px) {
+  #bucket-container {
+    transform: scale(0.8); /* Уменьшить ведро */
+    bottom: 22vh; /* Поднять выше */
+  }
+
+  #progress-container {
+    bottom: 16vh; /* тоже выше */
+    transform: scale(0.9);
+  }
+
+  #coins {
+    top: 10vh;
+    transform: translateX(-50%) scale(0.8);
+  }
+
+  #energy {
+    bottom: 80vh;
+    transform: scale(0.8);
+  }
+
+  #bottom-menu {
+    height: 75px;
+  }
+
+  .menu-item img {
+    width: 22px;
+    height: 22px;
+  }
+
+  .menu-item {
+    font-size: 12px;
+  }
+  #bucket-screen {
+  max-height: 100dvh;
+  padding-bottom: 90px; /* чтобы не залезло на меню */
+  box-sizing: border-box;
+}
+}
 
     #bucket-container {
       position: absolute;
@@ -52,6 +100,7 @@
       left: -100vw;
       width: 65vw;
       max-width: 510px;
+      min-width: 280px;
       z-index: 1;
       transition: transform 0.5s ease, opacity 0.5s ease, left 0.5s ease;
     }
@@ -69,6 +118,8 @@
     #bucket { width: 100%; height: auto; user-select: none; display: block; }
 
     .stain {
+      width: clamp(60px, 15vw, 120px);
+      height: clamp(60px, 15vw, 120px);
       z-index: 2;
       position: absolute;
       pointer-events: none;
@@ -78,8 +129,12 @@
 
     .brush {
       position: absolute;
-      width: 100px;
-      height: 100px;
+      width: 22vw;
+      height: 22vw;
+      max-width: 100px;
+      max-height: 100px;
+      min-width: 60px;
+      min-height: 60px;
       background: url('brush.svg') no-repeat center/contain;
       pointer-events: none;
       z-index: 3;
@@ -106,6 +161,7 @@
       transform: translateX(-50%);
       width: 70vw;
       max-width: 500px;
+      min-width: 250px;
       height: 27px;
       background: #ccc;
       border-radius: 100px;
@@ -139,7 +195,7 @@
 
 #energy-value {
   font-family: 'Chewy', cursive;
-  font-size: 20px;
+  font-size: clamp(16px, 5vw, 20px);
   color: #fff;
   text-shadow: 1.5px 1.5px 0 #518B8C;
 }
@@ -171,7 +227,7 @@
   transform: translateX(-50%);
   padding: 8px 20px;
   border-radius: 12px;
-  font-size: 40px;
+  font-size: clamp(24px, 6vw, 40px);
   font-weight: bold;
   z-index: 5;
 }
@@ -186,7 +242,7 @@
       bottom: 0;
       left: 0;
       width: 100%;
-      height: 90px;
+      height: clamp(60px, 12vh, 90px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -216,7 +272,7 @@
       flex-direction: column;
       align-items: center;
       color: #ffffff;
-      font-size: 14px;
+      font-size: clamp(12px, 3vw, 16px);
       font-weight: 600;
       text-shadow: 1.5px 1.5px 0 #263750;
       filter: drop-shadow(1.5px 1.5px 0 #263750);
@@ -243,7 +299,7 @@
     .placeholder-screen {
       color: white;
       font-family: 'Chewy', cursive;
-      font-size: 30px;
+      font-size: clamp(22px, 5vw, 32px);
       text-align: center;
       padding-top: 40vh;
       text-shadow: 2px 2px 4px #000;
@@ -251,6 +307,11 @@
   </style>
 </head>
 <body>
+    <div id="desktop-warning" style="display:none;">
+        <div style="text-align:center; padding: 50px; font-family: 'Chewy', cursive; font-size: 24px; color: #333;">
+          This app is for mobile only.<br />Please open it on your phone 😊📱
+        </div>
+      </div>
   <div id="game">
     <!-- ВЕДРО -->
     <div id="bucket-screen" class="screen active">
@@ -491,6 +552,24 @@ function spawnBrush(x, y) {
         spawnStains(5);
       }, 100);
     };
+
+    function isMobile() {
+  return window.innerWidth <= 500; // или 600, если хочешь жёстче
+}
+
+window.onload = () => {
+  if (!isMobile()) {
+    document.getElementById('game').style.display = 'none';
+    document.getElementById('desktop-warning').style.display = 'block';
+  } else {
+    bucketContainer.classList.add('offscreen-left');
+    setTimeout(() => {
+      bucketContainer.classList.remove('offscreen-left');
+      bucketContainer.classList.add('centered');
+      spawnStains(5);
+    }, 100);
+  }
+};
   </script>
 </body>
 </html>
