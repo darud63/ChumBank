@@ -272,6 +272,22 @@
     const coinsDisplay = document.getElementById('coins');
     let energy = 100, progress = 0, coins = 0, stains = [], brushing = false;
 
+    let lastY = 0;
+document.addEventListener('touchstart', e => {
+  lastY = e.touches[0].clientY;
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  const currentY = e.touches[0].clientY;
+  const isScrollingDown = currentY > lastY;
+  lastY = currentY;
+
+  // Блокируем pull-to-refresh, если свайп вниз
+  if (isScrollingDown && window.scrollY === 0) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
     const screens = {
       shop: document.getElementById('shop-screen'),
       bucket: document.getElementById('bucket-screen'),
