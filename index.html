@@ -44,10 +44,7 @@
     #shop-screen, #stats-screen {
       background: url('shop-bg.svg') no-repeat center/cover;
     }
-    @media (min-hight: 500px) {
-  #game { display: none !important; }
-  #desktop-warning { display: block !important; }
-}
+
     @media (min-aspect-ratio: 9/18) {
   #bucket-container {
     width: 60vw;
@@ -307,11 +304,6 @@
   </style>
 </head>
 <body>
-    <div id="desktop-warning" style="display:none;">
-        <div style="text-align:center; padding: 50px; font-family: 'Chewy', cursive; font-size: 24px; color: #333;">
-          This app is for mobile only.<br />Please open it on your phone 😊📱
-        </div>
-      </div>
   <div id="game">
     <!-- ВЕДРО -->
     <div id="bucket-screen" class="screen active">
@@ -552,24 +544,6 @@ function spawnBrush(x, y) {
         spawnStains(5);
       }, 100);
     };
-
-    function isMobile() {
-  return window.innerWidth <= 500; // или 600, если хочешь жёстче
-}
-
-window.onload = () => {
-  if (!isMobile()) {
-    document.getElementById('game').style.display = 'none';
-    document.getElementById('desktop-warning').style.display = 'block';
-  } else {
-    bucketContainer.classList.add('offscreen-left');
-    setTimeout(() => {
-      bucketContainer.classList.remove('offscreen-left');
-      bucketContainer.classList.add('centered');
-      spawnStains(5);
-    }, 100);
-  }
-};
   </script>
 </body>
 </html>
