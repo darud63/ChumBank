@@ -12,12 +12,45 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
+      touch-action: none;
       font-family: sans-serif;
       background-color: #d6f0ef;
       overflow: hidden;
       width: 100%;
       height: 100%;
       overscroll-behavior: none;
+    }
+     /* Заглушка на весь экран */
+     #desktop-warning {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000000ee;
+      color: white;
+      font-family: 'Chewy', cursive;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* Мобильный landscape режим (узкий экран по центру + затемнение по бокам) */
+    @media screen and (orientation: landscape) and (max-height: 500px) {
+      #game {
+        width: 390px;
+        margin: 0 auto;
+        box-shadow: 0 0 0 100vmax #000000dd;
+      }
+      body {
+        background: #000;
+        overflow: auto;
+      }
     }
     #game {
       position: relative;
@@ -250,6 +283,7 @@
   </style>
 </head>
 <body>
+    <div id="desktop-warning">Please open this app on your mobile phone 📱</div>
   <div id="game">
     <!-- ВЕДРО -->
     <div id="bucket-screen" class="screen active">
@@ -265,7 +299,7 @@
         <img src="energy.svg" class="energy-icon" />
         <div id="energy-value">100/100</div>
       </div>
-      </div>
+    </div>
 
     <!-- МАГАЗИН -->
     <div id="shop-screen" class="screen">
@@ -490,6 +524,13 @@ function spawnBrush(x, y) {
         spawnStains(5);
       }, 100);
     };
+    window.addEventListener('load', () => {
+      const isMobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent);
+      if (!isMobile) {
+        document.getElementById('desktop-warning').style.display = 'flex';
+        document.getElementById('game').style.display = 'none';
+      }
+    });
   </script>
 </body>
 </html>
