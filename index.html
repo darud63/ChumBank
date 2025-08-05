@@ -118,43 +118,67 @@
     }
 
     #energy {
-      position: absolute;
-      bottom: 10vh;
-      right: 6vw;
-      width: 40px;
-      height: 40px;
-      background: url('energy.png') no-repeat center/contain;
-      background-size: contain;
-      z-index: 4;
-    }
+  position: absolute;
+  bottom: 85vh;
+  right: 2vw;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 4;
+  padding: 0 6px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+}
+
+.energy-icon {
+  width: 32px;
+  height: 32px;
+}
+
+#energy-value {
+  font-family: 'Chewy', cursive;
+  font-size: 20px;
+  color: #fff;
+  text-shadow: 1.5px 1.5px 0 #518B8C;
+}
 
     #coins {
-      font-family: 'Chewy', cursive;
-      color: #ffffff;
-      text-shadow:
-  0 0 1px #518B8C,
-  1px 0 #518B8C, -1px 0 #518B8C,
-  0 1px #518B8C, 0 -1px #518B8C,
-  1px 1px #518B8C, -1px -1px #518B8C,
-  -1px 1px #518B8C, 1px -1px #518B8C,
-  2px 0 #518B8C, -2px 0 #518B8C,
-  0 2px #518B8C, 0 -2px #518B8C,
-  2px 2px #518B8C, -2px -2px #518B8C,
-  -2px 2px #518B8C, 2px -2px #518B8C,
-  3px 0 #518B8C, -3px 0 #518B8C,
-  0 3px #518B8C, 0 -3px #518B8C,
-  3px 3px #518B8C, -3px -3px #518B8C,
-  -3px 3px #518B8C, 3px -3px #518B8C;
-      position: absolute;
-      top: 15vh;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 8px 20px;
-      border-radius: 12px;
-      font-size: 40px;
-      font-weight: bold;
-      z-index: 5;
-    }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Chewy', cursive;
+  color: #ffffff;
+  text-shadow:
+    0 0 1px #518B8C,
+    1px 0 #518B8C, -1px 0 #518B8C,
+    0 1px #518B8C, 0 -1px #518B8C,
+    1px 1px #518B8C, -1px -1px #518B8C,
+    -1px 1px #518B8C, 1px -1px #518B8C,
+    2px 0 #518B8C, -2px 0 #518B8C,
+    0 2px #518B8C, 0 -2px #518B8C,
+    2px 2px #518B8C, -2px -2px #518B8C,
+    -2px 2px #518B8C, 2px -2px #518B8C,
+    3px 0 #518B8C, -3px 0 #518B8C,
+    0 3px #518B8C, 0 -3px #518B8C,
+    3px 3px #518B8C, -3px -3px #518B8C,
+    -3px 3px #518B8C, 3px -3px #518B8C;
+  position: absolute;
+  top: 15vh;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  border-radius: 12px;
+  font-size: 40px;
+  font-weight: bold;
+  z-index: 5;
+}
+
+.coin-icon {
+  width: 40px;
+  height: 40px;
+}
 
     #bottom-menu {
       position: absolute;
@@ -233,9 +257,14 @@
         <img id="bucket" src="bucket.svg" alt="bucket" />
       </div>
       <div id="progress-container"><div id="progress-bar"></div></div>
-      <div id="energy"></div>
-      <div id="coins">🪙 0</div>
-    </div>
+      <div id="coins">
+        <img src="coin.svg" class="coin-icon" />
+        <span id="coin-amount">0</span>
+      </div>
+      <div id="energy">
+        <img src="energy.svg" class="energy-icon" />
+        <div id="energy-value">100/100</div>
+      </div>
 
     <!-- МАГАЗИН -->
     <div id="shop-screen" class="screen">
@@ -272,7 +301,16 @@
     const bucketContainer = document.getElementById('bucket-container');
     const progressBar = document.getElementById('progress-bar');
     const coinsDisplay = document.getElementById('coins');
-    let energy = 100, progress = 0, coins = 0, stains = [], brushing = false;
+    let energy = 100, maxEnergy = 100;
+    let energyRestoreInterval = 1000; // восстановление энергии за какое время, 10к=10сек
+let progress = 0, coins = 0, stains = [], brushing = false;
+
+const energyDisplay = document.getElementById('energy-value');
+const coinAmount = document.getElementById('coin-amount');
+
+function updateEnergyDisplay() {
+  energyDisplay.textContent = `${energy}/${maxEnergy}`;
+}
 
     let lastY = 0;
     document.addEventListener('touchstart', e => {
@@ -339,32 +377,33 @@
       for (let i = 0; i < count; i++) createRandomStain();
     }
 
-    function spawnBrush(x, y) {
-      const existingBrush = document.querySelector('.brush');
-      if (existingBrush) {
-        existingBrush.style.left = `${x - 70}px`;
-        existingBrush.style.top = `${y - 70}px`;
-      } else {
-        const brush = document.createElement('div');
-        brush.classList.add('brush');
-        brush.style.left = `${x - 70}px`;
-        brush.style.top = `${y - 70}px`;
-        game.appendChild(brush);
-      }
+function spawnBrush(x, y) {
+    if (energy < 10) return;
+  const existingBrush = document.querySelector('.brush');
+  if (existingBrush) {
+    existingBrush.style.left = `${x - 70}px`;
+    existingBrush.style.top = `${y - 70}px`;
+  } else {
+    const brush = document.createElement('div');
+    brush.classList.add('brush');
+    brush.style.left = `${x - 70}px`;
+    brush.style.top = `${y - 70}px`;
+    game.appendChild(brush);
+  }
 
-      stains.forEach((stain, index) => {
-        const rect = stain.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const dist = Math.hypot(centerX - x, centerY - y);
-        if (dist < 60) {
-          stain.remove();
-          stains.splice(index, 1);
-          updateProgress(100 / 5);
-          reduceEnergy(5);
-        }
-      });
+  stains.forEach((stain, index) => {
+    const rect = stain.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dist = Math.hypot(centerX - x, centerY - y);
+    if (dist < 60) {
+      stain.remove();
+      stains.splice(index, 1);
+      updateProgress(100 / 5);
+      reduceEnergy(5); // восстановление энергии
     }
+  });
+}
 
     function showCoinFloat(amount) {
       const float = document.createElement('div');
@@ -385,7 +424,7 @@
       if (progress >= 100) {
         const earned = 100;
         coins += earned;
-        coinsDisplay.textContent = `🪙 ${coins}`;
+        coinAmount.textContent = coins;
         showCoinFloat(earned);
         progress = 0;
         progressBar.style.width = '0%';
@@ -394,9 +433,18 @@
     }
 
     function reduceEnergy(amount) {
-      energy -= amount;
-      if (energy < 0) energy = 0;
-    }
+  energy -= amount;
+  if (energy < 0) energy = 0;
+  updateEnergyDisplay(); // <-- вот это добавляем
+}
+
+    setInterval(() => {
+  if (energy < maxEnergy) {
+    energy += 10; // Количество прибавления энергии
+    if (energy > maxEnergy) energy = maxEnergy;
+    updateEnergyDisplay();
+  }
+}, energyRestoreInterval);
 
     function animateBucketSwap() {
       bucketContainer.classList.remove('centered');
