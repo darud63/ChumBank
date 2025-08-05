@@ -1,27 +1,315 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Figma Prototype</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chum App</title>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
       font-family: sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: #f0f0f0;
+      background-color: #d6f0ef;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
     }
-    iframe {
-      border: 1px solid #ccc;
-      width: 90%;
-      height: 90vh;
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: url('background.png') no-repeat center/cover;
+    }
+    #bucket-container {
+      position: absolute;
+      bottom: 19vh;
+      left: -100vw;
+      width: 65vw;
+      max-width: 510px;
+      z-index: 1;
+      transition: transform 0.5s ease, opacity 0.5s ease, left 0.5s ease;
+    }
+    #bucket-container .stain {
+      position: absolute;
+      left: 0;
+      top: 0;
+}
+    #bucket-container.offscreen-left {
+      left: -100vw;
+      transform: none;
+      opacity: 1;
+}
+
+    #bucket-container.offscreen-right {
+      left: 100vw;
+      transform: none;
+      opacity: 1;
+}
+    #bucket-container.centered {
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 1;
+    }
+    #bucket {
+      width: 100%;
+      height: auto;
+      user-select: none;
+      display: block;
+    }
+    .stain {
+      z-index: 2;
+      position: absolute;
+      pointer-events: none;
+      background: url('stain.png') no-repeat center/contain;
+      background-size: contain;
+    }
+    .brush {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      background: url('brush.png') no-repeat center/contain;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .coin-float {
+      position: absolute;
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffffff;
+      animation: floatUp 1s ease forwards;
+      z-index: 6;
+    }
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-50px); }
+    }
+    #progress-container {
+      position: absolute;
+      bottom: 10vh;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 70vw;
+      max-width: 500px;
+      height: 20px;
+      background: #ccc;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      width: 0%;
+      height: 100%;
+      background: #3cc487;
+    }
+    #energy {
+      position: absolute;
+      bottom: 10vh;
+      right: 6vw;
+      width: 40px;
+      height: 40px;
+      background: url('energy.png') no-repeat center/contain;
+      background-size: contain;
+      z-index: 4;
+    }
+    #coins {
+      color:#fff;
+      position: absolute;
+      top: 15vh;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 20px;
+      border-radius: 12px;
+      font-size: 40px;
+      font-weight: bold;
+      z-index: 5;
+    }
+    .ui-button {
+      position: absolute;
+      bottom: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <iframe style="border: 1px solid rgba(0, 0, 0, 0.1);" width="800" height="450" src="https://embed.figma.com/proto/i7P0jfLuICkW56YGkmPXjG/Chum-Bank?page-id=0%3A1&team_id=1114274751036324815&node-id=26-191&embed-host=share" allowfullscreen></iframe>
+  <div id="game">
+    <div id="bucket-container">
+      <img id="bucket" src="bucket.png" alt="bucket">
+    </div>
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+    <div id="energy"></div>
+    <div id="coins">🪙 0</div>
+    <button class="ui-button" onclick="alert('Нажата кнопка!')">Кнопка</button>
+  </div>
+
+  <script>
+    const game = document.getElementById('game');
+    const bucket = document.getElementById('bucket');
+    const bucketContainer = document.getElementById('bucket-container');
+    const progressBar = document.getElementById('progress-bar');
+    const coinsDisplay = document.getElementById('coins');
+    let energy = 100;
+    let progress = 0;
+    let coins = 0;
+    let stains = [];
+    let brushing = false;
+
+    function getRandom(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function createRandomStain() {
+      const stain = document.createElement('div');
+      stain.classList.add('stain');
+      const scale = getRandom(0.6, 1.2);
+      const rotation = getRandom(0, 360);
+      const x = getRandom(0, bucketContainer.offsetWidth - 100);
+      const y = getRandom(0, bucketContainer.offsetHeight - 100);
+
+      stain.style.width = `${100 * scale}px`;
+      stain.style.height = `${100 * scale}px`;
+      stain.style.left = `${x}px`;
+      stain.style.top = `${y}px`;
+      bucketContainer.appendChild(stain);
+      stain.style.transform = `rotate(${rotation}deg)`;
+
+      stains.push(stain);
+    }
+
+    function spawnStains(count) {
+      stains.forEach(s => s.remove());
+      stains = [];
+      for (let i = 0; i < count; i++) {
+        createRandomStain();
+      }
+    }
+
+    function spawnBrush(x, y) {
+      const el = document.elementFromPoint(x, y);
+      if (el && el.closest('.ui-button')) return;
+
+      const existingBrush = document.querySelector('.brush');
+      if (existingBrush) {
+        existingBrush.style.left = `${x - 70}px`;
+        existingBrush.style.top = `${y - 70}px`;
+      } else {
+        const brush = document.createElement('div');
+        brush.classList.add('brush');
+        brush.style.left = `${x - 70}px`;
+        brush.style.top = `${y - 70}px`;
+        game.appendChild(brush);
+      }
+
+      stains.forEach((stain, index) => {
+        const rect = stain.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dist = Math.hypot(centerX - x, centerY - y);
+        if (dist < 60) {
+          stain.remove();
+          stains.splice(index, 1);
+          updateProgress(100 / 5);
+          reduceEnergy(5);
+        }
+      });
+    }
+
+    function showCoinFloat(amount) {
+      const float = document.createElement('div');
+      float.className = 'coin-float';
+      float.innerText = `+${amount}`;
+      const x = window.innerWidth / 2 + getRandom(-40, 40);
+      const y = window.innerHeight / 2 - 100 + getRandom(-20, 20);
+      float.style.left = `${x}px`;
+      float.style.top = `${y}px`;
+      game.appendChild(float);
+      setTimeout(() => float.remove(), 1000);
+    }
+
+    function updateProgress(amount) {
+      progress += amount;
+      if (progress > 100) progress = 100;
+      progressBar.style.width = `${progress}%`;
+      if (progress >= 100) {
+        const earned = 100;
+        coins += earned;
+        coinsDisplay.textContent = `🪙 ${coins}`;
+        showCoinFloat(earned);
+        progress = 0;
+        progressBar.style.width = '0%';
+        animateBucketSwap();
+      }
+    }
+
+    function reduceEnergy(amount) {
+      energy -= amount;
+      if (energy < 0) energy = 0;
+    }
+
+    function animateBucketSwap() {
+  // Убираем ведро вправо
+  bucketContainer.classList.remove('centered');
+  bucketContainer.classList.add('offscreen-right');
+
+  setTimeout(() => {
+    // Телепортируем налево без transition
+    bucketContainer.style.transition = 'none';
+    bucketContainer.classList.remove('offscreen-right');
+    bucketContainer.classList.add('offscreen-left');
+    bucket.src = 'bucket.png';
+
+    // Удаляем старые пятна и спавним новые — ДО выезда
+    stains.forEach(s => s.remove());
+    stains = [];
+    spawnStains(5); // ← заранее, как просишь
+
+    requestAnimationFrame(() => {
+      // Возвращаем transition
+      bucketContainer.style.transition = 'transform 0.5s ease, opacity 0.5s ease, left 0.5s ease';
+
+      setTimeout(() => {
+        // Запуск выезда
+        bucketContainer.classList.remove('offscreen-left');
+        bucketContainer.classList.add('centered');
+      }, 50);
+    });
+  }, 500); // дождись ухода вправо
+}
+
+    game.addEventListener('touchstart', (e) => {
+      brushing = true;
+      const touch = e.touches[0];
+      spawnBrush(touch.clientX, touch.clientY);
+    });
+
+    game.addEventListener('touchmove', (e) => {
+      if (!brushing) return;
+      const touch = e.touches[0];
+      spawnBrush(touch.clientX, touch.clientY);
+    });
+
+    game.addEventListener('touchend', () => {
+      brushing = false;
+      const brush = document.querySelector('.brush');
+      if (brush) brush.remove();
+    });
+
+    // Initial bucket animation in
+    window.onload = () => {
+    bucketContainer.classList.add('offscreen-left');
+    setTimeout(() => {
+        bucketContainer.classList.remove('offscreen-left');
+        bucketContainer.classList.add('centered');
+        spawnStains(5);
+  }, 100);
+}
+  </script>
 </body>
 </html>
