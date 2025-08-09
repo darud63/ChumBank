@@ -464,7 +464,7 @@
       try {
         const img = ctx.getImageData(sx, sy, sw, sh).data;
         let countNonTransparent = 0, totalChecked = 0;
-        const step = 4;
+        const step = 4; // sampled for progress
         for (let py = 0; py < sh; py += step) {
           for (let px = 0; px < sw; px += step) {
             totalChecked++;
@@ -477,6 +477,30 @@
         return countNonTransparent / totalChecked;
       } catch (e) {
         return 1; // в случае ошибки считать непрозрачной
+      }
+    }
+  
+    // Полная проверка: есть ли вообще непрозрачные пиксели в bbox (шаг=1)
+    function isStainFullyCleared(stain) {
+      const { x, y, w, h } = stain.bbox;
+      const sx = Math.max(0, Math.floor(x));
+      const sy = Math.max(0, Math.floor(y));
+      const sw = Math.max(1, Math.min(stainCanvas.width - sx, Math.floor(w)));
+      const sh = Math.max(1, Math.min(stainCanvas.height - sy, Math.floor(h)));
+      if (sw <= 0 || sh <= 0) return true;
+      try {
+        const img = ctx.getImageData(sx, sy, sw, sh).data;
+        for (let py = 0; py < sh; py++) {
+          for (let px = 0; px < sw; px++) {
+            const idx = (py * sw + px) * 4;
+            const alpha = img[idx + 3];
+            if (alpha > 10) return false; // найден непрозрачный пиксель -> не полностью очищена
+          }
+        }
+        return true; // ни одного непрозрачного пикселя
+      } catch (e) {
+        // в случае ошибки не считать очищенной
+        return false;
       }
     }
   
@@ -548,19 +572,21 @@
     }
   
     function updateAfterErase() {
-      // для каждой кляксы считаем текущую непрозрачность
+      // для прогресса используем sampled ratio (быстро)
       let totalCompletion = 0;
       for (const s of stains) {
-        const ratio = getStainOpaqueRatio(s); // 0..1 non-transparent
+        const ratio = getStainOpaqueRatio(s); // 0..1 non-transparent (sampled)
         const completion = Math.max(0, 1 - ratio); // 0..1 cleared fraction
         totalCompletion += completion;
-        // если клякса почти полностью (строгий порог) — помечаем cleared
-        if (!s.cleared && ratio <= 0.02) {
-          s.cleared = true;
-          // очистить bbox остаточно для визуала
-          ctx.clearRect(s.bbox.x, s.bbox.y, s.bbox.w, s.bbox.h);
-          // уменьшить энергию как раньше — 5 единиц за кляксу
-          reduceEnergy(5);
+        // пометка cleared только при полном отсутствии непрозрачных пикселей
+        if (!s.cleared) {
+          if (isStainFullyCleared(s)) {
+            s.cleared = true;
+            // очистить bbox остаточно для визуала
+            ctx.clearRect(s.bbox.x, s.bbox.y, s.bbox.w, s.bbox.h);
+            // уменьшить энергию как раньше — 5 единиц за кляксу
+            reduceEnergy(5);
+          }
         }
       }
       const num = Math.max(1, stains.length);
@@ -687,7 +713,7 @@
       setTimeout(() => float.remove(), 1000);
     }
   
-    // showCoinText — белый текст над ведром (рандом по X, поднимается вверх и исчезает)
+    // showCoinText — белый текст над ведром (styled like energy 100/100)
     function showCoinText(amount) {
       const rect = bucketContainer.getBoundingClientRect();
       const padding = 12;
@@ -701,11 +727,12 @@
       el.style.top = `${y}px`;
       el.style.transform = 'translate(-50%, 0)';
       el.style.pointerEvents = 'none';
-      el.style.fontFamily = "Chewy, sans-serif";
+      el.style.fontFamily = "'Chewy', cursive";
       el.style.color = '#ffffff';
-      el.style.fontSize = '20px';
+      el.style.fontSize = '18px';
       el.style.fontWeight = '700';
-      el.style.textShadow = '0 1px 0 rgba(0,0,0,0.6)';
+      // match energy text-shadow: 1.5px 1.5px 0 #518B8C
+      el.style.textShadow = '1.5px 1.5px 0 #518B8C';
       el.style.opacity = '1';
       el.style.transition = 'transform 900ms cubic-bezier(.22,.9,.34,1), opacity 900ms ease';
       document.body.appendChild(el);
@@ -749,8 +776,6 @@
       }, 100);
     };
   </script>
-  
-  
   
   
 </body>
