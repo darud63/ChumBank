@@ -6,7 +6,6 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E">
   <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet" />
   <title>Chum App</title>
   <style>
@@ -187,8 +186,8 @@
 }
 
 .energy-icon {
-  width: 32px;
-  height: 32px;
+  width: 25px;
+  height: 25px;
 }
 
 #energy-value {
@@ -318,7 +317,7 @@
         <span id="coin-amount">0</span>
       </div>
       <div id="energy">
-        <img src="energy.svg" class="energy-icon" />
+        <img src="energy2.svg" class="energy-icon" />
         <div id="energy-value">100/100</div>
       </div>
     </div>
@@ -506,6 +505,7 @@
             coins += earned;
             coinAmount.textContent = coins;
             showCoinFloat(earned);
+            showCoinText(earned);
             // сброс прогресса и swap
             progress = 0;
             progressBar.style.width = '0%';
@@ -519,31 +519,49 @@
       progressAnim = { id: requestAnimationFrame(step) };
     }
   
-    // стирание в точке + обновление оценки прогресса (плавно)
-    function eraseAt(x, y) {
+    // ---- smooth stroke eraser ----
+    let lastErase = null;
+  
+    function eraseStroke(x, y, start = false) {
       ctx.save();
       ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = eraserRadius * 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.arc(x, y, eraserRadius, 0, Math.PI * 2);
-      ctx.fill();
+      if (start || !lastErase) {
+        ctx.moveTo(x, y);
+        // tiny line to show dot
+        ctx.lineTo(x + 0.01, y + 0.01);
+        ctx.stroke();
+        lastErase = { x, y };
+      } else {
+        ctx.moveTo(lastErase.x, lastErase.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        lastErase = { x, y };
+      }
       ctx.restore();
   
+      // После штриха — обновляем оценки клякс и прогресс
+      updateAfterErase();
+    }
+  
+    function updateAfterErase() {
       // для каждой кляксы считаем текущую непрозрачность
       let totalCompletion = 0;
       for (const s of stains) {
         const ratio = getStainOpaqueRatio(s); // 0..1 non-transparent
         const completion = Math.max(0, 1 - ratio); // 0..1 cleared fraction
         totalCompletion += completion;
-        // если клякса почти полностью (жёсткий порог) — помечаем cleared
-        // требуем очень большой очистки: <= 2% оставшихся пикселей
+        // если клякса почти полностью (строгий порог) — помечаем cleared
         if (!s.cleared && ratio <= 0.02) {
-  s.cleared = true;
-  // очистить bbox остаточно для визуала
-  ctx.clearRect(s.bbox.x, s.bbox.y, s.bbox.w, s.bbox.h);
-
-  // уменьшить энергию как раньше — 5 единиц за кляксу
-  reduceEnergy(5);
-}
+          s.cleared = true;
+          // очистить bbox остаточно для визуала
+          ctx.clearRect(s.bbox.x, s.bbox.y, s.bbox.w, s.bbox.h);
+          // уменьшить энергию как раньше — 5 единиц за кляксу
+          reduceEnergy(5);
+        }
       }
       const num = Math.max(1, stains.length);
       const targetProgress = Math.min(100, (totalCompletion / num) * 100);
@@ -561,9 +579,12 @@
     bucketContainer.addEventListener('touchstart', (e) => {
       e.preventDefault();
       isErasing = true;
+      lastErase = null;
       const rect = stainCanvas.getBoundingClientRect();
       const touch = e.touches[0];
-      eraseAt(touch.clientX - rect.left, touch.clientY - rect.top);
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      eraseStroke(x, y, true);
       spawnBrush(touch.clientX, touch.clientY);
     }, { passive: false });
   
@@ -572,12 +593,15 @@
       e.preventDefault();
       const rect = stainCanvas.getBoundingClientRect();
       const touch = e.touches[0];
-      eraseAt(touch.clientX - rect.left, touch.clientY - rect.top);
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      eraseStroke(x, y, false);
       spawnBrush(touch.clientX, touch.clientY);
     }, { passive: false });
   
     bucketContainer.addEventListener('touchend', (e) => {
       isErasing = false;
+      lastErase = null;
       const brush = document.querySelector('.brush');
       if (brush) brush.remove();
       if (stains.length > 0 && stains.every(s => s.cleared) && !swapping) {
@@ -645,11 +669,56 @@
     updateEnergyDisplay();
   
     function reduceEnergy(amount) {
-  energy -= amount;
-  if (energy < 0) energy = 0;
-  updateEnergyDisplay();
-}
-
+      energy -= amount;
+      if (energy < 0) energy = 0;
+      updateEnergyDisplay();
+    }
+  
+    // showCoinFloat (старый) — оставил
+    function showCoinFloat(amount) {
+      const float = document.createElement('div');
+      float.className = 'coin-float';
+      float.innerText = `+${amount}`;
+      const x = window.innerWidth / 2 + getRandom(-40, 40);
+      const y = window.innerHeight / 2 - 100 + getRandom(-20, 20);
+      float.style.left = `${x}px`;
+      float.style.top = `${y}px`;
+      game.appendChild(float);
+      setTimeout(() => float.remove(), 1000);
+    }
+  
+    // showCoinText — белый текст над ведром (рандом по X, поднимается вверх и исчезает)
+    function showCoinText(amount) {
+      const rect = bucketContainer.getBoundingClientRect();
+      const padding = 12;
+      const x = getRandom(rect.left + padding, rect.right - padding);
+      const y = rect.top + rect.height * 0.12;
+  
+      const el = document.createElement('div');
+      el.textContent = `+${amount}`;
+      el.style.position = 'absolute';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.transform = 'translate(-50%, 0)';
+      el.style.pointerEvents = 'none';
+      el.style.fontFamily = "Chewy, sans-serif";
+      el.style.color = '#ffffff';
+      el.style.fontSize = '20px';
+      el.style.fontWeight = '700';
+      el.style.textShadow = '0 1px 0 rgba(0,0,0,0.6)';
+      el.style.opacity = '1';
+      el.style.transition = 'transform 900ms cubic-bezier(.22,.9,.34,1), opacity 900ms ease';
+      document.body.appendChild(el);
+  
+      const dx = getRandom(-30, 30);
+      requestAnimationFrame(() => {
+        el.style.transform = `translate(calc(-50% + ${dx}px), -60px)`;
+        el.style.opacity = '0';
+      });
+  
+      setTimeout(() => el.remove(), 950);
+    }
+  
     // сохранённая логика меню/табы/pull-to-refresh
     let lastY = 0;
     document.addEventListener('touchstart', e => { lastY = e.touches[0].clientY; }, { passive: false });
@@ -680,6 +749,7 @@
       }, 100);
     };
   </script>
+  
   
   
   
