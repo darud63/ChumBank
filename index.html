@@ -309,6 +309,7 @@
     <div id="bucket-screen" class="screen active">
       <div id="bucket-container">
         <img id="bucket" src="bucket.svg" alt="bucket" />
+        <canvas id="stain-canvas" style="position:absolute; left:0; top:0; width:100%; height:100%; touch-action:none; pointer-events:none;"></canvas>
       </div>
       <div id="progress-container"><div id="progress-bar"></div></div>
       <div id="coins">
@@ -356,194 +357,330 @@
     const bucketContainer = document.getElementById('bucket-container');
     const progressBar = document.getElementById('progress-bar');
     const coinsDisplay = document.getElementById('coins');
+    const coinAmount = document.getElementById('coin-amount');
     let energy = 100, maxEnergy = 100;
-    let energyRestoreInterval = 1000; // восстановление энергии за какое время, 10к=10сек
-let progress = 0, coins = 0, stains = [], brushing = false;
-
-const energyDisplay = document.getElementById('energy-value');
-const coinAmount = document.getElementById('coin-amount');
-
-function updateEnergyDisplay() {
-  energyDisplay.textContent = `${energy}/${maxEnergy}`;
-}
-
-    let lastY = 0;
-    document.addEventListener('touchstart', e => {
-      lastY = e.touches[0].clientY;
-    }, { passive: false });
-
-    document.addEventListener('touchmove', e => {
-      const currentY = e.touches[0].clientY;
-      const isScrollingDown = currentY > lastY;
-      lastY = currentY;
-
-    // Блокируем pull-to-refresh, если свайп вниз
-    if (isScrollingDown && window.scrollY === 0) {
-      e.preventDefault();
+    let energyRestoreInterval = 1000;
+    let progress = 0, coins = 0;
+    let brushing = false;
+  
+    const stainCanvas = document.getElementById('stain-canvas');
+    const ctx = stainCanvas.getContext('2d');
+  
+    // STAIN state
+    let stains = []; // {cx,cy,r,points,bbox,cleared}
+    let isErasing = false;
+    // brush scale & eraser radius (уменьшенная кисть)
+    const brushScale = 0.6; // уменьшает визуальную кисть
+    const baseEraserRadius = 40;
+    let eraserRadius = Math.round(baseEraserRadius * brushScale);
+    let swapping = false;
+  
+    // smooth progress animation handle
+    let progressAnim = null;
+  
+    function resizeCanvas() {
+      stainCanvas.width = bucketContainer.clientWidth;
+      stainCanvas.height = bucketContainer.clientHeight;
+      if (stains.length) drawAllStains();
     }
-    }, { passive: false });
-
-    const screens = {
-      shop: document.getElementById('shop-screen'),
-      bucket: document.getElementById('bucket-screen'),
-      stats: document.getElementById('stats-screen')
-    };
-
-    function switchTab(tabName) {
-      for (const key in screens) {
-        screens[key].classList.remove('active');
-        document.querySelector(`[data-tab="${key}"]`).classList.remove('active');
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+  
+    function getRandom(min, max) { return Math.random() * (max - min) + min; }
+  
+    function drawBlob(ctx, cx, cy, radius, pointsCount = 7) {
+      const pts = [];
+      for (let i = 0; i < pointsCount; i++) {
+        const angle = (i / pointsCount) * Math.PI * 2;
+        const r = radius * (0.6 + Math.random() * 0.6);
+        pts.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
       }
-      screens[tabName].classList.add('active');
-      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const p0 = pts[i];
+        const p1 = pts[(i + 1) % pts.length];
+        const midX = (p0.x + p1.x) / 2;
+        const midY = (p0.y + p1.y) / 2;
+        if (i === 0) ctx.moveTo(midX, midY);
+        ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
     }
-
-    document.querySelectorAll('.menu-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const tab = item.getAttribute('data-tab');
-        switchTab(tab);
-      });
-    });
-
-    function getRandom(min, max) {
-      return Math.random() * (max - min) + min;
+  
+    function clearCanvas() { ctx.clearRect(0, 0, stainCanvas.width, stainCanvas.height); }
+  
+    function drawAllStains() {
+      clearCanvas();
+      ctx.fillStyle = '#E69F97';
+      ctx.strokeStyle = '#BD655F';
+      ctx.lineWidth = 4;
+      stains.forEach(s => { if (!s.cleared) drawBlob(ctx, s.cx, s.cy, s.r, s.points); });
     }
-
-    function createRandomStain() {
-      const stain = document.createElement('div');
-      stain.classList.add('stain');
-      const scale = getRandom(0.6, 1.2);
-      const rotation = getRandom(0, 360);
-      const x = getRandom(0, bucketContainer.offsetWidth - 100);
-      const y = getRandom(0, bucketContainer.offsetHeight - 100);
-
-      stain.style.width = `${100 * scale}px`;
-      stain.style.height = `${100 * scale}px`;
-      stain.style.left = `${x}px`;
-      stain.style.top = `${y}px`;
-      stain.style.transform = `rotate(${rotation}deg)`;
-      bucketContainer.appendChild(stain);
-      stains.push(stain);
-    }
-
-    function spawnStains(count) {
-      stains.forEach(s => s.remove());
+  
+    // создаём 3-4 кляксы, избегая сильного перекрытия
+    function initStains(num = 3) {
       stains = [];
-      for (let i = 0; i < count; i++) createRandomStain();
+      const W = stainCanvas.width, H = stainCanvas.height;
+      const margin = 12;
+      const minR = Math.min(W, H) * 0.10;
+      const maxR = Math.min(W, H) * 0.22;
+      let created = 0, attempts = 0;
+      while (created < num && attempts < num * 8) {
+        attempts++;
+        const r = getRandom(minR, maxR);
+        const cx = getRandom(margin + r, W - margin - r);
+        const cy = getRandom(margin + r, H - margin - r);
+        let ok = true;
+        for (const s of stains) {
+          if (Math.hypot(s.cx - cx, s.cy - cy) < (s.r + r) * 0.8) { ok = false; break; }
+        }
+        if (!ok) continue;
+        const points = 6 + Math.floor(Math.random() * 4);
+        const bbox = { x: cx - r - 6, y: cy - r - 6, w: r * 2 + 12, h: r * 2 + 12 };
+        stains.push({ cx, cy, r, points, bbox, cleared: false });
+        created++;
+      }
+      while (created < num) {
+        const r = getRandom(minR, maxR), cx = getRandom(margin + r, W - margin - r), cy = getRandom(margin + r, H - margin - r);
+        const points = 6 + Math.floor(Math.random() * 4);
+        const bbox = { x: cx - r - 6, y: cy - r - 6, w: r * 2 + 12, h: r * 2 + 12 };
+        stains.push({ cx, cy, r, points, bbox, cleared: false });
+        created++;
+      }
+      drawAllStains();
+      progress = 0; progressBar.style.width = '0%';
     }
-
-function spawnBrush(x, y) {
-    if (energy < 10) return;
-  const existingBrush = document.querySelector('.brush');
-  if (existingBrush) {
-    existingBrush.style.left = `${x - 70}px`;
-    existingBrush.style.top = `${y - 70}px`;
-  } else {
-    const brush = document.createElement('div');
-    brush.classList.add('brush');
-    brush.style.left = `${x - 70}px`;
-    brush.style.top = `${y - 70}px`;
-    game.appendChild(brush);
-  }
-
-  stains.forEach((stain, index) => {
-    const rect = stain.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const dist = Math.hypot(centerX - x, centerY - y);
-    if (dist < 60) {
-      stain.remove();
-      stains.splice(index, 1);
-      updateProgress(100 / 5);
-      reduceEnergy(5); // восстановление энергии
+  
+    // возвращает долю непрозрачных пикселей в bbox (0..1) — 1 = полностью непрозрачно
+    function getStainOpaqueRatio(stain) {
+      const { x, y, w, h } = stain.bbox;
+      const sx = Math.max(0, Math.floor(x));
+      const sy = Math.max(0, Math.floor(y));
+      const sw = Math.max(1, Math.min(stainCanvas.width - sx, Math.floor(w)));
+      const sh = Math.max(1, Math.min(stainCanvas.height - sy, Math.floor(h)));
+      if (sw <= 0 || sh <= 0) return 0;
+      try {
+        const img = ctx.getImageData(sx, sy, sw, sh).data;
+        let countNonTransparent = 0, totalChecked = 0;
+        const step = 4;
+        for (let py = 0; py < sh; py += step) {
+          for (let px = 0; px < sw; px += step) {
+            totalChecked++;
+            const idx = (py * sw + px) * 4;
+            const alpha = img[idx + 3];
+            if (alpha > 18) countNonTransparent++;
+          }
+        }
+        if (totalChecked === 0) return 0;
+        return countNonTransparent / totalChecked;
+      } catch (e) {
+        return 1; // в случае ошибки считать непрозрачной
+      }
     }
-  });
+  
+    // плавная установка прогресса (анимация от текущего к target за duration ms)
+    function smoothSetProgress(target, duration = 180) {
+      if (progressAnim) cancelAnimationFrame(progressAnim.id || 0);
+      const start = performance.now();
+      const from = progress;
+      const diff = target - from;
+      if (Math.abs(diff) < 0.001) return;
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        // ease-out
+        const eased = 1 - Math.pow(1 - t, 3);
+        progress = from + diff * eased;
+        progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+        if (t < 1) {
+          progressAnim = { id: requestAnimationFrame(step) };
+        } else {
+          progress = Math.max(0, Math.min(100, target));
+          progressBar.style.width = `${progress}%`;
+          progressAnim = null;
+          // если дошли до 100% финально — дать логику срабатывания
+          if (progress >= 100) {
+            const earned = 100;
+            coins += earned;
+            coinAmount.textContent = coins;
+            showCoinFloat(earned);
+            // сброс прогресса и swap
+            progress = 0;
+            progressBar.style.width = '0%';
+            if (!swapping) {
+              swapping = true;
+              setTimeout(() => animateBucketSwap(), 150);
+            }
+          }
+        }
+      }
+      progressAnim = { id: requestAnimationFrame(step) };
+    }
+  
+    // стирание в точке + обновление оценки прогресса (плавно)
+    function eraseAt(x, y) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(x, y, eraserRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+  
+      // для каждой кляксы считаем текущую непрозрачность
+      let totalCompletion = 0;
+      for (const s of stains) {
+        const ratio = getStainOpaqueRatio(s); // 0..1 non-transparent
+        const completion = Math.max(0, 1 - ratio); // 0..1 cleared fraction
+        totalCompletion += completion;
+        // если клякса почти полностью (жёсткий порог) — помечаем cleared
+        // требуем очень большой очистки: <= 2% оставшихся пикселей
+        if (!s.cleared && ratio <= 0.02) {
+  s.cleared = true;
+  // очистить bbox остаточно для визуала
+  ctx.clearRect(s.bbox.x, s.bbox.y, s.bbox.w, s.bbox.h);
+
+  // уменьшить энергию как раньше — 5 единиц за кляксу
+  reduceEnergy(5);
 }
-
-    function showCoinFloat(amount) {
-      const float = document.createElement('div');
-      float.className = 'coin-float';
-      float.innerText = `+${amount}`;
-      const x = window.innerWidth / 2 + getRandom(-40, 40);
-      const y = window.innerHeight / 2 - 100 + getRandom(-20, 20);
-      float.style.left = `${x}px`;
-      float.style.top = `${y}px`;
-      game.appendChild(float);
-      setTimeout(() => float.remove(), 1000);
+      }
+      const num = Math.max(1, stains.length);
+      const targetProgress = Math.min(100, (totalCompletion / num) * 100);
+      // плавно установить прогресс (не телепорт)
+      smoothSetProgress(targetProgress);
+  
+      // если все кляксы помечены cleared и swap не начался — запустить
+      if (stains.length > 0 && stains.every(s => s.cleared) && !swapping) {
+        swapping = true;
+        setTimeout(() => animateBucketSwap(), 120);
+      }
     }
-
-    function updateProgress(amount) {
-      progress += amount;
-      if (progress > 100) progress = 100;
-      progressBar.style.width = `${progress}%`;
-      if (progress >= 100) {
-        const earned = 100;
-        coins += earned;
-        coinAmount.textContent = coins;
-        showCoinFloat(earned);
-        progress = 0;
-        progressBar.style.width = '0%';
+  
+    // ---- input handlers ----
+    bucketContainer.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isErasing = true;
+      const rect = stainCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      eraseAt(touch.clientX - rect.left, touch.clientY - rect.top);
+      spawnBrush(touch.clientX, touch.clientY);
+    }, { passive: false });
+  
+    bucketContainer.addEventListener('touchmove', (e) => {
+      if (!isErasing) return;
+      e.preventDefault();
+      const rect = stainCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      eraseAt(touch.clientX - rect.left, touch.clientY - rect.top);
+      spawnBrush(touch.clientX, touch.clientY);
+    }, { passive: false });
+  
+    bucketContainer.addEventListener('touchend', (e) => {
+      isErasing = false;
+      const brush = document.querySelector('.brush');
+      if (brush) brush.remove();
+      if (stains.length > 0 && stains.every(s => s.cleared) && !swapping) {
+        swapping = true;
         animateBucketSwap();
       }
+    });
+  
+    // кисть визуально, уменьшена по scale
+    function spawnBrush(x, y) {
+      if (energy < 10) return;
+      const existingBrush = document.querySelector('.brush');
+      const offset = Math.round(70 * brushScale); // смещение под меньшую кисть
+      if (existingBrush) {
+        existingBrush.style.left = `${x - offset}px`;
+        existingBrush.style.top = `${y - offset}px`;
+      } else {
+        const brush = document.createElement('div');
+        brush.classList.add('brush');
+        brush.style.left = `${x - offset}px`;
+        brush.style.top = `${y - offset}px`;
+        brush.style.transform = `scale(${brushScale})`;
+        game.appendChild(brush);
+      }
     }
-
-    function reduceEnergy(amount) {
-  energy -= amount;
-  if (energy < 0) energy = 0;
-  updateEnergyDisplay(); // <-- вот это добавляем
-}
-
-    setInterval(() => {
-  if (energy < maxEnergy) {
-    energy += 10; // Количество прибавления энергии
-    if (energy > maxEnergy) energy = maxEnergy;
-    updateEnergyDisplay();
-  }
-}, energyRestoreInterval);
-
+  
+    // плавная анимация swap — теперь одинаковая с первым входом
     function animateBucketSwap() {
-      bucketContainer.classList.remove('centered');
+      if (swapping === 'animating') return;
+      swapping = 'animating';
+  
+      // уходим вправо (плавно)
+      bucketContainer.classList.remove('centered', 'offscreen-left');
       bucketContainer.classList.add('offscreen-right');
+  
+      // ждём длительности выхода (соответствует CSS 0.5s)
+      const exitDuration = 520; // ms (маленький запас)
       setTimeout(() => {
+        // отключаем transition, ставим влево мгновенно
         bucketContainer.style.transition = 'none';
         bucketContainer.classList.remove('offscreen-right');
         bucketContainer.classList.add('offscreen-left');
+  
+        // обновляем изображение и новые кляксы
         bucket.src = 'bucket.svg';
-        spawnStains(5);
-        requestAnimationFrame(() => {
-          bucketContainer.style.transition = 'transform 0.5s ease, opacity 0.5s ease, left 0.5s ease';
-          setTimeout(() => {
-            bucketContainer.classList.remove('offscreen-left');
-            bucketContainer.classList.add('centered');
-          }, 50);
-        });
-      }, 500);
+        initStains(3 + Math.floor(Math.random() * 2));
+  
+        // форс-рефлоу, вернуть transition и плавно в центр
+        void bucketContainer.offsetWidth;
+        bucketContainer.style.transition = 'transform 0.5s ease, opacity 0.5s ease, left 0.5s ease';
+        setTimeout(() => {
+          bucketContainer.classList.remove('offscreen-left');
+          bucketContainer.classList.add('centered');
+          swapping = false;
+        }, 40);
+      }, exitDuration);
     }
+  
+    // energy restore и UI
+    const energyDisplay = document.getElementById('energy-value');
+    function updateEnergyDisplay() { energyDisplay.textContent = `${energy}/${maxEnergy}`; }
+    setInterval(() => {
+      if (energy < maxEnergy) { energy += 10; if (energy > maxEnergy) energy = maxEnergy; updateEnergyDisplay(); }
+    }, energyRestoreInterval);
+    updateEnergyDisplay();
+  
+    function reduceEnergy(amount) {
+  energy -= amount;
+  if (energy < 0) energy = 0;
+  updateEnergyDisplay();
+}
 
-    game.addEventListener('touchstart', (e) => {
-      brushing = true;
-      const touch = e.touches[0];
-      spawnBrush(touch.clientX, touch.clientY);
-    });
-    game.addEventListener('touchmove', (e) => {
-      if (!brushing) return;
-      const touch = e.touches[0];
-      spawnBrush(touch.clientX, touch.clientY);
-    });
-    game.addEventListener('touchend', () => {
-      brushing = false;
-      const brush = document.querySelector('.brush');
-      if (brush) brush.remove();
-    });
-
+    // сохранённая логика меню/табы/pull-to-refresh
+    let lastY = 0;
+    document.addEventListener('touchstart', e => { lastY = e.touches[0].clientY; }, { passive: false });
+    document.addEventListener('touchmove', e => {
+      const currentY = e.touches[0].clientY; const isScrollingDown = currentY > lastY; lastY = currentY;
+      if (isScrollingDown && window.scrollY === 0) e.preventDefault();
+    }, { passive: false });
+  
+    const screens = { shop: document.getElementById('shop-screen'), bucket: document.getElementById('bucket-screen'), stats: document.getElementById('stats-screen') };
+    function switchTab(tabName) {
+      for (const key in screens) { screens[key].classList.remove('active'); document.querySelector(`[data-tab="${key}"]`).classList.remove('active'); }
+      screens[tabName].classList.add('active'); document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    }
+    document.querySelectorAll('.menu-item').forEach(item => item.addEventListener('click', () => switchTab(item.getAttribute('data-tab'))));
+  
+    // кисть по всей области (визуал)
+    game.addEventListener('touchstart', (e) => { brushing = true; const touch = e.touches[0]; spawnBrush(touch.clientX, touch.clientY); });
+    game.addEventListener('touchmove', (e) => { if (!brushing) return; const touch = e.touches[0]; spawnBrush(touch.clientX, touch.clientY); });
+    game.addEventListener('touchend', () => { brushing = false; const brush = document.querySelector('.brush'); if (brush) brush.remove(); });
+  
+    // init: ведро выезжает слева как и раньше, затем создаём 3-4 кляксы
     window.onload = () => {
       bucketContainer.classList.add('offscreen-left');
       setTimeout(() => {
         bucketContainer.classList.remove('offscreen-left');
         bucketContainer.classList.add('centered');
-        spawnStains(5);
+        initStains(3 + Math.floor(Math.random() * 2));
       }, 100);
     };
   </script>
+  
+  
+  
 </body>
 </html>
